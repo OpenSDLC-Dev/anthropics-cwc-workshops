@@ -3,6 +3,14 @@
 
 # cwc-workshops
 
+> **This is a copy, not the original.** Upstream is
+> [anthropics/cwc-workshops](https://github.com/anthropics/cwc-workshops) — the
+> workshop materials are Anthropic's work, licensed Apache-2.0, and every
+> copyright notice is retained. This copy exists under `OpenSDLC-Dev` so the
+> workshops can be adapted to run against a self-hosted, wire-compatible
+> control plane instead of Anthropic's hosted API. Report upstream issues
+> upstream; anything here that diverges is ours.
+
 Workshop materials. Not maintained and not accepting contributions.
 
 Materials from Anthropic-run **Code with Claude** workshops.
