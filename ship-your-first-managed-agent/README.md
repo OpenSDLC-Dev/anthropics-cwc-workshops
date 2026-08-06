@@ -43,6 +43,27 @@ The dashboard opens at `localhost:8501`. Click around — Metrics, Logs,
 Deploys all work. The SRE Agent panel on the right says
 *"agent offline — implement `setup_agent()` in `agent.py`"*.
 
+### Running against a self-hosted control plane
+
+Nothing here is bound to `api.anthropic.com`. The endpoint and the model are
+read from `.env`, so pointing the workshop at any **wire-compatible** Managed
+Agents control plane — for example
+[managed-agent-platform](https://github.com/OpenSDLC-Dev/managed-agent-platform)'s
+docker-compose stack running on your own machine — is two variables:
+
+```bash
+ANTHROPIC_BASE_URL=http://localhost:8080
+ANTHROPIC_API_KEY=<that deployment's CONTROLPLANE_API_KEY>
+MODEL_ID=<whatever that deployment routes>
+```
+
+Leave `ANTHROPIC_BASE_URL` unset and the SDK goes back to Anthropic's hosted
+API; `MODEL_ID` then has to be a real Claude model id.
+
+One thing a self-hosted control plane may be stricter about: `start_session()`
+mounts the log at the **absolute** path `/mnt/session/uploads/app.log`, which is
+where `SYSTEM` tells the agent to look either way.
+
 ## What you build
 
 Open **`agent.py`**. Seven functions, all `raise NotImplementedError`. Fill them
