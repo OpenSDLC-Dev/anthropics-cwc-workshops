@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Headless verification of agent_complete.py's API path. No Streamlit."""
 import json
+import os
 import sys
 import time
 import uuid
@@ -12,7 +13,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 DATA = Path(__file__).parent / "data"
+
+# Unset ANTHROPIC_BASE_URL → api.anthropic.com; set → any wire-compatible
+# control plane, including a self-hosted one on localhost. See .env.example.
 client = anthropic.Anthropic()
+MODEL = os.getenv("MODEL_ID") or "claude-opus-4-7"
+LOG_MOUNT_PATH = "/mnt/session/uploads/app.log"
 
 SYSTEM = (
     "You are the SRE Agent, an SRE/data-analyst agent. Analyze "
@@ -49,7 +55,7 @@ def handle(name, args):
 
 
 # 1. Agent
-agent = client.beta.agents.create(name="SRE Agent", model="claude-opus-4-7", system=SYSTEM, tools=TOOLS)
+agent = client.beta.agents.create(name="SRE Agent", model=MODEL, system=SYSTEM, tools=TOOLS)
 # 2. Environment
 env = client.beta.environments.create(
     name=f"sre-agent-e2e-{uuid.uuid4().hex[:6]}",
@@ -62,7 +68,7 @@ with open(DATA / "app.log", "rb") as f:
 session = client.beta.sessions.create(
     agent=agent.id,
     environment_id=env.id,
-    resources=[{"type": "file", "file_id": log.id, "mount_path": "app.log"}],
+    resources=[{"type": "file", "file_id": log.id, "mount_path": LOG_MOUNT_PATH}],
 )
 print(f"agent={agent.id} env={env.id} session={session.id}")
 

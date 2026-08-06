@@ -2,21 +2,29 @@
 # SPDX-License-Identifier: Apache-2.0
 """Reference implementation of agent.py — the seven filled-in functions."""
 import json
+import os
 import uuid
 
 import anthropic
 import streamlit as st
+from dotenv import load_dotenv
 
 from provided import DATA, SYSTEM, TOOLS, metrics, deploys, diff
 
+load_dotenv()
+
+# Unset ANTHROPIC_BASE_URL → api.anthropic.com; set → any wire-compatible
+# control plane, including a self-hosted one on localhost. See .env.example.
 client = anthropic.Anthropic()
+MODEL = os.getenv("MODEL_ID") or "claude-opus-4-7"
+LOG_MOUNT_PATH = "/mnt/session/uploads/app.log"
 
 
 # ── 1. Agent ──────────────────────────────────────────────────────────────
 @st.cache_resource
 def setup_agent() -> str:
     agent = client.beta.agents.create(
-        name="SRE Agent", model="claude-opus-4-7", system=SYSTEM, tools=TOOLS,
+        name="SRE Agent", model=MODEL, system=SYSTEM, tools=TOOLS,
     )
     return agent.id
 
@@ -43,7 +51,8 @@ def start_session(agent_id: str, env_id: str, log_file_id: str) -> str:
     session = client.beta.sessions.create(
         agent=agent_id,
         environment_id=env_id,
-        resources=[{"type": "file", "file_id": log_file_id, "mount_path": "app.log"}],
+        resources=[{"type": "file", "file_id": log_file_id,
+                    "mount_path": LOG_MOUNT_PATH}],
     )
     return session.id
 
