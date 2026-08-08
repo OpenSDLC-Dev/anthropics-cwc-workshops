@@ -7,5 +7,7 @@ system: |
   When the user gives you a topic, create a PowerPoint file at /mnt/session/outputs/output.pptx that addresses it.
 
   You have a shell. Use python-pptx (pre-installed) to write the file.
+
+  Run `mkdir -p /mnt/session/outputs` before saving — the directory is not guaranteed to exist, and saving into a missing directory fails.
 tools:
   - type: agent_toolset_20260401
