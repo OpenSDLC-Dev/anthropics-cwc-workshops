@@ -16,9 +16,38 @@ import { RUNS_DIR, selectTasks, type Task } from "./lib.js";
 // Paste the IDs returned by `ant beta:environments create` /
 // `ant beta:agents create` here. The underlying definitions live in
 // resources/*.yaml; iterate via `ant beta:agents update < file.yaml`.
-const ENVIRONMENT_ID = "";
-const AGENT_ID = "";
-const WORKSPACE_ID = "default";
+// .env wins when set, so one checkout can drive two deployments.
+const ENVIRONMENT_ID = process.env.ENVIRONMENT_ID || "";
+const AGENT_ID = process.env.AGENT_ID || "";
+const WORKSPACE_ID = process.env.WORKSPACE_ID || "default";
+
+// Where to link a session's trace. A self-hosted control plane has its own
+// console (or none), so the shape is a template rather than a fixed host.
+const SESSION_URL_TEMPLATE =
+    process.env.SESSION_URL_TEMPLATE ||
+    "https://platform.claude.com/workspaces/{workspace}/sessions/{session}";
+
+// Anthropic's hosted API indexes whatever the agent leaves in
+// /mnt/session/outputs/ once the session settles. A wire-compatible
+// self-hosted deployment may only harvest that directory as part of an
+// outcome grading cycle — no outcome, no files, and the download step below
+// finds nothing. Attaching a minimal outcome is what turns the harvest on.
+const HARVEST_VIA_OUTCOME = process.env.HARVEST_VIA_OUTCOME === "1";
+
+// The outcome is not part of the eval — graders.ts is what scores the deck.
+// It exists only to make the harvest run. One iteration, so the grader never
+// sends the agent back to revise. The cast is because this SDK's event union
+// predates outcomes; the field is accepted on the wire and validated there.
+const OUTCOME_EVENT = {
+    type: "user.define_outcome",
+    description: "Produce the requested slide deck.",
+    max_iterations: 1,
+    rubric: {
+        type: "text",
+        content:
+            "Satisfied if a PowerPoint file exists at /mnt/session/outputs/output.pptx.",
+    },
+} as unknown as Anthropic.Beta.Sessions.BetaManagedAgentsEventParams;
 
 async function runTask(
     client: Anthropic,
@@ -44,7 +73,10 @@ async function runTask(
     });
     // Build a clickable Console trace URL so we can watch the agent's
     // reasoning and tool calls in the browser.
-    const consoleUrl = `https://platform.claude.com/workspaces/${WORKSPACE_ID}/sessions/${session.id}`;
+    const consoleUrl = SESSION_URL_TEMPLATE.replace(
+        "{workspace}",
+        WORKSPACE_ID,
+    ).replace("{session}", session.id);
     if (verbose) {
         console.log(`session: ${session.id}`);
         console.log(`console: ${consoleUrl}`);
@@ -62,6 +94,7 @@ async function runTask(
                 type: "user.message",
                 content: [{ type: "text", text: task.prompt }],
             },
+            ...(HARVEST_VIA_OUTCOME ? [OUTCOME_EVENT] : []),
         ],
     });
 
@@ -84,6 +117,15 @@ async function runTask(
                 // A bash / file-write / etc. tool call inside the container.
                 // Just print the tool name as a progress indicator.
                 if (verbose) process.stdout.write(`\n[tool] ${event.name}\n`);
+                break;
+            case "session.error":
+                // Something upstream of the agent failed — most often the
+                // model id routing to no provider. The idle that follows says
+                // only "retries_exhausted", so print the reason here or the
+                // run looks like an agent that silently produced nothing.
+                (verbose ? console.log : log)(
+                    `error: ${JSON.stringify((event as { error?: unknown }).error)}`,
+                );
                 break;
             case "session.status_idle":
                 // requires_action = transient idle waiting on tool confirmation; keep streaming.
@@ -108,6 +150,10 @@ async function runTask(
         async () => {
             const { data } = await client.beta.files.list({
                 scope_id: session.id,
+                // The default page is small and a harvest's rows sort by an
+                // effectively random tiebreak, so ask for the whole scope —
+                // otherwise output.pptx can fall off page one.
+                limit: 1000,
                 betas: ["managed-agents-2026-04-01"],
             });
             if (!data.some((f) => f.filename.endsWith(".pptx"))) {

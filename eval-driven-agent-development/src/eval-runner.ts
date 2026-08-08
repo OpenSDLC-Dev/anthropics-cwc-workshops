@@ -17,7 +17,7 @@ import * as fs from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { GRADERS, type Grader, type GraderContext } from "./graders.js";
-import { RUNS_DIR, selectTasks, type Task } from "./lib.js";
+import { judgeClient, RUNS_DIR, selectTasks, type Task } from "./lib.js";
 import { parsePptx } from "./parse-pptx.js";
 import { renderPptx } from "./render.js";
 
@@ -279,7 +279,7 @@ if (values["show-baseline"]) {
     }
     console.log(summarize(results));
 } else {
-    const client = new Anthropic();
+    const client = judgeClient();
     // Render + judge per task is independent — fan out across tasks. Each
     // task spawns its own render and parallel judge calls; total wall time
     // is roughly max(per-task), not sum. Use allSettled so one task failing

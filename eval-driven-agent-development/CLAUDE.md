@@ -1,10 +1,12 @@
 # Prerequisites
 
-When asked to setup the folder/repository, make sure the prerequisites listed in the README.md are met (Node >=22 installed, `ant` CLI installed, Docker installed, `ANTHROPIC_API_KEY` set in environment). Do not deploy the resources yet.
+When asked to setup the folder/repository, make sure the prerequisites listed in the README.md are met (Node >=22 installed, Docker installed, `ANTHROPIC_API_KEY` set in environment). Do not deploy the resources yet.
 Offer to install them for the user if missing (if Docker is missing, point them to the installation website)
 Kick off `docker build -t cwc-pptx-render .` asap in a subagent to make sure the docker image is pre-built.
 
-Write the `ANTHROPIC_API_KEY` from your environment into a `.env` file for reference (in case your terminal gets reopened and loses it). Do not override it though if the `.env` file already consists with a key inside.
+The `ant` CLI is optional — `npm run deploy` makes the same API calls (see below). Only install it if the user asks for it.
+
+Write the `ANTHROPIC_API_KEY` from your environment into a `.env` file for reference (in case your terminal gets reopened and loses it). Do not override it though if the `.env` file already consists with a key inside — it may hold a self-hosted deployment's key plus a separate judge endpoint, none of which is in your environment. See `.env-example`.
 
 # Repository structure
 
@@ -18,13 +20,9 @@ Assume you're at the workshop unless told otherwise.
 
 # YAML resources
 
-When asked to set up the agent resources, create the resources by piping them to the `ant` CLI:
+Deploy them with `npm run deploy` — both resources, or `npm run deploy -- agent` / `-- environment` for one. The same command creates and updates: a YAML file with no `id` is created, one that has an `id` is updated in place. Use it for the initial setup and after every edit to `resources/*.yaml`.
 
-```
-ant beta:agents create < ./resources/agent.yaml
-```
-
-Then from the output, take the `id` (and `version` for agent) and insert it as an extra key at the top of the YAML file:
+It writes the bookkeeping back into the YAML itself, so there is nothing to copy by hand:
 
 ```diff
 + id: agent_abc123...
@@ -32,29 +30,26 @@ Then from the output, take the `id` (and `version` for agent) and insert it as a
   name: workshop-pptx-01-polish
 ```
 
-Additionally, update `AGENT_ID` and `ENVIRONMENT_ID` in `src/create-slides.ts`.
+An agent update is optimistically concurrent, so `version` has to be present and current — the script bumps it from each response. Environments are not versioned and only get an `id`.
 
-Same for `workshop-pptx.environment.yaml`, but only with the `id` (environments are not versioned).
+Then set `AGENT_ID` and `ENVIRONMENT_ID` in `.env`, or update the constants in `src/create-slides.ts` — the environment wins when both are set. The command prints both lines ready to paste.
 
-When you are asked to update any resource, pipe the YAML file into the `update` command.
+If the user has the `ant` CLI and prefers it, these are the equivalent calls — but then the `id` / `version` write-back above is yours to do by hand:
 
 ```
+ant beta:agents create < ./resources/agent.yaml
 ant beta:agents update < ./resources/agent.yaml
-```
-
-then afterwards, you just need to bump the version again to the new version from the response:
-
-```diff
-  id: agent_abc123...
-- version: 1
-+ version: 2
-  name: workshop-pptx-01-polish
 ```
 
 # Troubleshooting
 
 If a resource suddenly gives a 404, you were probably ran in a different terminal.
 Load the `ANTHROPIC_API_KEY` from the `.env` file.
+
+Two failure modes against a self-hosted control plane are silent — they produce a scorecard rather than an error, so check them before believing a bad result:
+
+- **Every judge column reads `-` or `NaN`.** The judge endpoint accepted `output_config` and answered in prose instead of a score. Set `JUDGE_VIA_TOOL_CALL=1`.
+- **`Produced result` is `missing` but the agent said it wrote the file.** Either the sandbox image has no `python-pptx` (the deployment may ignore the environment's `packages:`), or the outputs were never harvested into the Files API (`HARVEST_VIA_OUTCOME=1`). Read the run's `session.json` — a `session.error` event names a model-routing failure, which otherwise only surfaces as a `retries_exhausted` idle.
 
 
 # Git operations
