@@ -6,9 +6,9 @@
   "scripts": {
     "create-slides": "dotenv -o -e .env -- tsx src/create-slides.ts",
     "render": "tsx src/render.ts",
-    "eval": "FORCE_COLOR=3 dotenv -o -e .env -- tsx src/eval-runner.ts",
-    "show-baseline": "FORCE_COLOR=3 tsx src/eval-runner.ts --show-baseline",
-    "clean-scores": "rm -f runs/*/score.json runs/*/baseline.score.json",
+    "eval": "dotenv -o -e .env -v FORCE_COLOR=3 -- tsx src/eval-runner.ts",
+    "show-baseline": "dotenv -v FORCE_COLOR=3 -- tsx src/eval-runner.ts --show-baseline",
+    "clean-scores": "node -e \"for (const f of require('node:fs').globSync('runs/*/{score,baseline.score}.json')) require('node:fs').rmSync(f)\"",
     "ant": "dotenv -o -e .env -- ant"
   },
   "dependencies": {
