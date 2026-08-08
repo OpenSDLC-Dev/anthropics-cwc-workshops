@@ -36,7 +36,7 @@ Then set `AGENT_ID` and `ENVIRONMENT_ID` in `.env`, or update the constants in `
 
 If the user has the `ant` CLI and prefers it, these are the equivalent calls — but then the `id` / `version` write-back above is yours to do by hand:
 
-```
+```bash
 ant beta:agents create < ./resources/agent.yaml
 ant beta:agents update < ./resources/agent.yaml
 ```
